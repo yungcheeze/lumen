@@ -303,6 +303,11 @@ fn run_app_internal(
     theme::init(options.theme.as_deref());
     highlight::init();
 
+    // On X11 the process that set the clipboard must keep serving it, so a
+    // Clipboard dropped right after set_text loses the text unless a clipboard
+    // manager takes it over. Hold one for the whole session instead.
+    let mut clipboard = arboard::Clipboard::new().ok();
+
     // Initialize state before TUI so we can sync viewed files
     let mut state = AppState::new(file_diffs, options.focus.as_deref());
     state.settings.wrap = options.wrap;
@@ -779,7 +784,7 @@ fn run_app_internal(
                                 ModalResult::AnnotationCopyAll => {
                                     // Copy all annotations to clipboard
                                     let formatted = state.format_annotations_for_export();
-                                    if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                                    if let Some(clipboard) = clipboard.as_mut() {
                                         let _ = clipboard.set_text(&formatted);
                                     }
                                     active_modal = None;
@@ -1887,14 +1892,14 @@ fn run_app_internal(
                                     if let Some(text) =
                                         extract_selected_text(&state.selection, side_by_side)
                                     {
-                                        if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                                        if let Some(clipboard) = clipboard.as_mut() {
                                             let _ = clipboard.set_text(&text);
                                         }
                                     }
                                     state.clear_selection();
                                 } else {
                                     // Otherwise copy filename
-                                    if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                                    if let Some(clipboard) = clipboard.as_mut() {
                                         let _ = clipboard.set_text(
                                             &state.file_diffs[state.current_file].filename,
                                         );
